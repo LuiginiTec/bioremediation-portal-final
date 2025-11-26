@@ -357,8 +357,8 @@ function App() {
         <div className="p-5 bg-white shadow-lg rounded-xl border-t-4 border-green-500">
           <h2 className="text-xl font-bold text-green-700 mb-4 flex items-center">3. Experiment Setup</h2>
           <div className="space-y-3">
-            <InputField label="Optimal pH" name="optimal_ph" value={expData.optimal_ph} onChange={(e) => setExpData({...expData, optimal_ph: e.target.value})} type="number" step="0.1" />
-            <InputField label="Optimal Temp (°C)" name="optimal_temp" value={expData.optimal_temp} onChange={(e) => setExpData({...expData, optimal_temp: e.target.value})} type="number" step="0.1" />
+            <InputField label="pH" name="optimal_ph" value={expData.optimal_ph} onChange={(e) => setExpData({...expData, optimal_ph: e.target.value})} type="number" step="0.1" />
+            <InputField label="Temp (°C)" name="optimal_temp" value={expData.optimal_temp} onChange={(e) => setExpData({...expData, optimal_temp: e.target.value})} type="number" step="0.1" />
             <InputField label="Initial Conc (mg/L)" name="initial_conc_mg_L" value={expData.initial_conc_mg_L} onChange={(e) => setExpData({...expData, initial_conc_mg_L: e.target.value})} type="number" step="0.1" />
             <InputField label="Nutrient Regime" name="nutrient_regime" value={expData.nutrient_regime} onChange={(e) => setExpData({...expData, nutrient_regime: e.target.value})} placeholder="e.g., Anaerobic, minimal medium" />
             <InputField label="Publication DOI (Required)" name="publication_doi" value={expData.publication_doi} onChange={(e) => setExpData({...expData, publication_doi: e.target.value})} required placeholder="10.1016/j.biortech.2023.129671" />
