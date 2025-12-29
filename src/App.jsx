@@ -473,7 +473,10 @@ function App() {
       <div className="lg:col-span-4 max-w-2xl mx-auto w-full mt-4">
         <button
           onClick={handleFullSubmission}
-          disabled={isSubmitting || !sampleData.sample_name || !microbeData.strain_name || !microbeData.genus || !expData.publication_doi || !capacityData.time_h || !metalData.symbol || !metalData.valence_state || !metalData.metal_name}
+          // UPDATED: Removed the "disable if fields empty" logic.
+          // Now it's only disabled if it's currently sending data.
+          // This allows you to click it and see the validation errors!
+          disabled={isSubmitting}
           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg text-lg transition duration-200 disabled:opacity-50 flex items-center justify-center"
         >
           {isSubmitting ? (
