@@ -7,7 +7,7 @@ import { getFirestore, collection, query, setLogLevel, addDoc } from 'firebase/f
 // --- Configuration Constants ---
 // CRITICAL: WHEN YOU DEPLOY YOUR API (TO RENDER/RAILWAY), REPLACE THIS WITH THE PUBLIC RENDER/RAILWAY URL
 // Example of a public deployment URL: https://biorem-api-luis.onrender.com
-const API_URL = 'https://biorem-api-luis.onrender.com'; 
+const API_URL = 'https://bioremediation-portal-final.onrender.com'; 
 const API_KEY = ""; // Not used here, but kept for AI helper function 
 
 // --- Global Variables (Provided by Canvas Environment - only used for auth) ---
