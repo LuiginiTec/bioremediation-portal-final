@@ -5,9 +5,9 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged }
 import { getFirestore, collection, query, setLogLevel, addDoc } from 'firebase/firestore'; 
 
 // --- Configuration Constants ---
-// CRITICAL: WHEN YOU DEPLOY YOUR API (TO RENDER/RAILWAY), REPLACE THIS WITH THE PUBLIC RENDER/RAILWAY URL
-// Example of a public deployment URL: https://biorem-api-luis.onrender.com
-const API_URL = 'https://bioremediation-portal-final.onrender.com'; 
+// UPDATED: This now looks for the Vercel Environment Variable first.
+// If it can't find it (local development), it falls back to your Render URL.
+const API_URL = import.meta.env.VITE_API_URL || 'https://bioremediation-portal-final.onrender.com'; 
 const API_KEY = ""; // Not used here, but kept for AI helper function 
 
 // --- Global Variables (Provided by Canvas Environment - only used for auth) ---
@@ -42,9 +42,9 @@ const Message = ({ message }) => {
   );
 };
 
-// Helper component for input fields
-const InputField = ({ label, name, value, onChange, type = 'text', required = false, step, placeholder }) => (
-    <div>
+// UPDATED: Helper component for input fields with Error Handling
+const InputField = ({ label, name, value, onChange, type = 'text', required = false, step, placeholder, error }) => (
+    <div className="mb-4">
       <label htmlFor={name} className="block text-sm font-medium text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
@@ -57,8 +57,19 @@ const InputField = ({ label, name, value, onChange, type = 'text', required = fa
         required={required}
         step={step}
         placeholder={placeholder}
-        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        className={`mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none sm:text-sm transition duration-200
+          ${error 
+            ? 'border-red-500 ring-1 ring-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50' 
+            : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
+          }`}
       />
+      {/* Show error message if it exists */}
+      {error && (
+        <p className="mt-1 text-xs text-red-600 font-semibold flex items-center">
+           <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+           {error}
+        </p>
+      )}
     </div>
   );
 
@@ -148,6 +159,9 @@ function App() {
   const [microbes, setMicrobes] = useState([]); 
   const [message, setMessage] = useState(null); 
   const [activeTab, setActiveTab] = useState('core'); 
+  
+  // NEW: State for Form Errors
+  const [formErrors, setFormErrors] = useState({});
 
   // Form State for Core Data
   const [sampleData, setSampleData] = useState({ sample_name: '', latitude: '', longitude: '', habitat_type: HABITAT_OPTIONS[0].split('-')[0] });
@@ -230,6 +244,38 @@ function App() {
     setExpData({ optimal_ph: '', optimal_temp: '', initial_conc_mg_L: '', nutrient_regime: '', publication_doi: '' });
     setCapacityData({ time_h: '', removal_efficiency: '', max_uptake_mg_g: '', mechanism: BIOMEC_OPTIONS[0] });
     setMetalData({ metal_name: '', symbol: '', valence_state: '', ligand_type: '', atomic_number: '', pubchem_compound_id: '' });
+    setFormErrors({}); // Reset errors too
+  };
+
+  // --- NEW: PROFESSIONAL FORM VALIDATION LOGIC ---
+  const validateForm = () => {
+    const errors = {};
+    
+    // 1. pH Validation (Scientific Reality: 0-14)
+    const ph = parseFloat(expData.optimal_ph);
+    if (expData.optimal_ph && (ph < 0 || ph > 14)) {
+        errors.optimal_ph = "pH must be between 0 and 14.";
+    }
+
+    // 2. Efficiency Validation (0-100%)
+    const eff = parseFloat(capacityData.removal_efficiency);
+    if (capacityData.removal_efficiency && (eff < 0 || eff > 100)) {
+        errors.removal_efficiency = "Efficiency must be between 0% and 100%.";
+    }
+
+    // 3. Time Validation (Cannot be negative)
+    if (capacityData.time_h && parseInt(capacityData.time_h) < 0) {
+        errors.time_h = "Time cannot be negative.";
+    }
+
+    // 4. Concentration Validation (Cannot be negative)
+    if (expData.initial_conc_mg_L && parseFloat(expData.initial_conc_mg_L) < 0) {
+        errors.initial_conc_mg_L = "Concentration cannot be negative.";
+    }
+
+    setFormErrors(errors);
+    // If "errors" is empty, the form is valid (length is 0)
+    return Object.keys(errors).length === 0;
   };
 
 
@@ -237,7 +283,13 @@ function App() {
   const handleFullSubmission = async (e) => {
     e.preventDefault();
     
-    // 1. Frontend Validation
+    // 1. NEW: Run Professional Validation Checks before anything else
+    if (!validateForm()) {
+        showMessage("Please fix the highlighted errors before submitting.", 'error');
+        return; // STOP! Do not send data to the server.
+    }
+
+    // 2. Basic Required Field Check
     if (!sampleData.sample_name || !microbeData.strain_name || !microbeData.genus || !expData.publication_doi || !capacityData.time_h) {
         showMessage("Validation failed: Please fill in all required fields.", 'warning'); return;
     }
@@ -247,7 +299,7 @@ function App() {
 
     setIsSubmitting(true);
     try {
-        // 2. Construct Payload
+        // 3. Construct Payload
         const payload = {
             sampleData: { ...sampleData, latitude: parseFloat(sampleData.latitude) || null, longitude: parseFloat(sampleData.longitude) || null, },
             microbeData,
@@ -270,7 +322,7 @@ function App() {
             userId: userId, 
         };
 
-        // 3. Send to API (This is the critical call to the Render/Railway backend)
+        // 4. Send to API (This is the critical call to the Render/Railway backend)
         const response = await fetch(`${API_URL}/api/core-data`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -357,9 +409,23 @@ function App() {
         <div className="p-5 bg-white shadow-lg rounded-xl border-t-4 border-green-500">
           <h2 className="text-xl font-bold text-green-700 mb-4 flex items-center">3. Experiment Setup</h2>
           <div className="space-y-3">
-            <InputField label="pH" name="optimal_ph" value={expData.optimal_ph} onChange={(e) => setExpData({...expData, optimal_ph: e.target.value})} type="number" step="0.1" />
+            <InputField 
+                label="pH" 
+                name="optimal_ph" 
+                value={expData.optimal_ph} 
+                onChange={(e) => setExpData({...expData, optimal_ph: e.target.value})} 
+                type="number" step="0.1" 
+                error={formErrors.optimal_ph}
+            />
             <InputField label="Temp (°C)" name="optimal_temp" value={expData.optimal_temp} onChange={(e) => setExpData({...expData, optimal_temp: e.target.value})} type="number" step="0.1" />
-            <InputField label="Initial Conc (mg/L)" name="initial_conc_mg_L" value={expData.initial_conc_mg_L} onChange={(e) => setExpData({...expData, initial_conc_mg_L: e.target.value})} type="number" step="0.1" />
+            <InputField 
+                label="Initial Conc (mg/L)" 
+                name="initial_conc_mg_L" 
+                value={expData.initial_conc_mg_L} 
+                onChange={(e) => setExpData({...expData, initial_conc_mg_L: e.target.value})} 
+                type="number" step="0.1" 
+                error={formErrors.initial_conc_mg_L}
+            />
             <InputField label="Nutrient Regime" name="nutrient_regime" value={expData.nutrient_regime} onChange={(e) => setExpData({...expData, nutrient_regime: e.target.value})} placeholder="e.g., Anaerobic, minimal medium" />
             <InputField label="Publication DOI (Required)" name="publication_doi" value={expData.publication_doi} onChange={(e) => setExpData({...expData, publication_doi: e.target.value})} required placeholder="10.1016/j.biortech.2023.129671" />
           </div>
@@ -381,8 +447,22 @@ function App() {
                 </div>
             </div>
 
-            <InputField label="Time (h)" name="time_h" value={capacityData.time_h} onChange={(e) => setCapacityData({...capacityData, time_h: e.target.value})} type="number" step="1" required />
-            <InputField label="Removal Efficiency (%)" name="removal_efficiency" value={capacityData.removal_efficiency} onChange={(e) => setCapacityData({...capacityData, removal_efficiency: e.target.value})} type="number" step="0.1" />
+            <InputField 
+                label="Time (h)" 
+                name="time_h" 
+                value={capacityData.time_h} 
+                onChange={(e) => setCapacityData({...capacityData, time_h: e.target.value})} 
+                type="number" step="1" required 
+                error={formErrors.time_h}
+            />
+            <InputField 
+                label="Removal Efficiency (%)" 
+                name="removal_efficiency" 
+                value={capacityData.removal_efficiency} 
+                onChange={(e) => setCapacityData({...capacityData, removal_efficiency: e.target.value})} 
+                type="number" step="0.1" 
+                error={formErrors.removal_efficiency}
+            />
             <InputField label="Max Uptake (mg/g)" name="max_uptake_mg_g" value={capacityData.max_uptake_mg_g} onChange={(e) => setCapacityData({...capacityData, max_uptake_mg_g: e.target.value})} type="number" step="0.1" />
             <SelectField label="Mechanism" name="mechanism" value={capacityData.mechanism} onChange={(e) => setCapacityData({...capacityData, mechanism: e.target.value})} options={BIOMEC_OPTIONS} />
           </div>
