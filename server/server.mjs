@@ -5,25 +5,27 @@ import cors from 'cors';
 const { Pool } = pg;
 
 const app = express();
+
 // 1. DYNAMIC PORT (Required for Render)
 const port = process.env.PORT || 3001;
 
 // 2. Database Connection (Dynamic)
-// We use a "connectionString" instead of typing user/pass manually
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL, 
     ssl: {
-        rejectUnauthorized: false // <--- REQUIRED for Neon/Cloud DBs
+        rejectUnauthorized: false // Required for Neon/Cloud DBs
     }
 });
 
 // 3. CORS Configuration (Security)
+// We allow '*' (all origins) to fix your connection issues immediately.
 app.use(cors({
-    origin: '*', // Allows your Vercel frontend to talk to this backend
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type']
+    origin: '*', 
+    methods: ['GET', 'POST', 'OPTIONS'], // Added OPTIONS for preflight checks
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Enable JSON parsing for incoming requests
 app.use(express.json());
 
 // --- TEST ENDPOINT ---
@@ -59,7 +61,8 @@ async function findOrCreateMetal(client, metalData) {
 // --- MAIN DATA ENDPOINT ---
 app.post('/api/core-data', async (req, res) => {
     const client = await pool.connect();
-    // ... (Keep the rest of your endpoint logic exactly the same as you had it) ...
+    
+    // Extract data from the frontend request
     const { sampleData, microbeData, expData, capacityData, metalData } = req.body;
     
     try {
